@@ -15,12 +15,15 @@ namespace TiendaDeportiva.API.Controllers
         public IHttpActionResult Get(
             string categoria = null,
             decimal? minPrecio = null,
-            decimal? maxPrecio = null)
+            decimal? maxPrecio = null,
+            int pagina = 1,
+            int tamPagina = 10)
         {
             using (var db = new AppDbContext())
             {
                 var query = db.Productos.Where(p => p.Activo);
 
+                // Filtros
                 if (!string.IsNullOrEmpty(categoria))
                     query = query.Where(p => p.Categoria == categoria);
 
@@ -30,21 +33,35 @@ namespace TiendaDeportiva.API.Controllers
                 if (maxPrecio.HasValue)
                     query = query.Where(p => p.Precio <= maxPrecio.Value);
 
-                var result = query.Select(p => new ProductoDTO
-                {
-                    Id = p.Id,
-                    Nombre = p.Nombre,
-                    Descripcion = p.Descripcion,
-                    Precio = p.Precio,
-                    Stock = p.Stock,
-                    Categoria = p.Categoria
-                }).ToList();
+                // Total para paginación
+                var total = query.Count();
 
-                return Ok(result);
+                var productos = query
+                    .OrderBy(p => p.Id)
+                    .Skip((pagina - 1) * tamPagina)
+                    .Take(tamPagina)
+                    .Select(p => new ProductoDTO
+                    {
+                        Id = p.Id,
+                        Nombre = p.Nombre,
+                        Descripcion = p.Descripcion,
+                        Precio = p.Precio,
+                        Stock = p.Stock,
+                        Categoria = p.Categoria
+                    })
+                    .ToList();
+
+                return Ok(new
+                {
+                    Total = total,
+                    Pagina = pagina,
+                    TamPagina = tamPagina,
+                    Data = productos
+                });
             }
         }
 
-        // GET by id
+        // GET: api/productos/5
         [HttpGet]
         [Route("{id:int}")]
         public IHttpActionResult GetById(int id)
@@ -54,7 +71,8 @@ namespace TiendaDeportiva.API.Controllers
                 var p = db.Productos.FirstOrDefault(x => x.Id == id && x.Activo);
 
                 if (p == null)
-                    return NotFound();
+                    return Content(System.Net.HttpStatusCode.NotFound,
+                        new { mensaje = "Producto no encontrado" });
 
                 return Ok(new ProductoDTO
                 {
@@ -68,13 +86,30 @@ namespace TiendaDeportiva.API.Controllers
             }
         }
 
-        // POST
+        // POST: api/productos
         [HttpPost]
         [Route("")]
         public IHttpActionResult Post([FromBody] ProductoDTO dto)
         {
             if (dto == null)
                 return BadRequest("Datos inválidos");
+
+            if (string.IsNullOrWhiteSpace(dto.Nombre))
+                return BadRequest("El nombre es obligatorio");
+
+            if (dto.Precio <= 0)
+                return BadRequest("El precio debe ser mayor a 0");
+
+            if (dto.Stock < 0)
+                return BadRequest("El stock no puede ser negativo");
+
+            if (dto.Categoria != "Fútbol" &&
+                dto.Categoria != "Básquetbol" &&
+                dto.Categoria != "Natación" &&
+                dto.Categoria != "Tenis")
+            {
+                return BadRequest("Categoría inválida");
+            }
 
             using (var db = new AppDbContext())
             {
@@ -93,21 +128,35 @@ namespace TiendaDeportiva.API.Controllers
 
                 dto.Id = entity.Id;
 
-                return Ok(dto);
+                return Ok(new
+                {
+                    mensaje = "Producto creado correctamente",
+                    data = dto
+                });
             }
         }
 
-        // PUT
+        // PUT: api/productos/5
         [HttpPut]
         [Route("{id:int}")]
         public IHttpActionResult Put(int id, [FromBody] ProductoDTO dto)
         {
+            if (dto == null)
+                return BadRequest("Datos inválidos");
+
             using (var db = new AppDbContext())
             {
-                var entity = db.Productos.FirstOrDefault(x => x.Id == id);
+                var entity = db.Productos.FirstOrDefault(x => x.Id == id && x.Activo);
 
                 if (entity == null)
-                    return NotFound();
+                    return Content(System.Net.HttpStatusCode.NotFound,
+                        new { mensaje = "Producto no encontrado" });
+
+                if (dto.Precio <= 0)
+                    return BadRequest("El precio debe ser mayor a 0");
+
+                if (dto.Stock < 0)
+                    return BadRequest("El stock no puede ser negativo");
 
                 entity.Nombre = dto.Nombre;
                 entity.Descripcion = dto.Descripcion;
@@ -117,26 +166,34 @@ namespace TiendaDeportiva.API.Controllers
 
                 db.SaveChanges();
 
-                return Ok(dto);
+                return Ok(new
+                {
+                    mensaje = "Producto actualizado correctamente",
+                    data = dto
+                });
             }
         }
 
-        // DELETE (soft delete)
+        // DELETE: api/productos/5 (soft delete)
         [HttpDelete]
         [Route("{id:int}")]
         public IHttpActionResult Delete(int id)
         {
             using (var db = new AppDbContext())
             {
-                var entity = db.Productos.FirstOrDefault(x => x.Id == id);
+                var entity = db.Productos.FirstOrDefault(x => x.Id == id && x.Activo);
 
                 if (entity == null)
-                    return NotFound();
+                    return Content(System.Net.HttpStatusCode.NotFound,
+                        new { mensaje = "Producto no encontrado" });
 
                 entity.Activo = false;
                 db.SaveChanges();
 
-                return Ok("Producto desactivado");
+                return Ok(new
+                {
+                    mensaje = "Producto desactivado correctamente"
+                });
             }
         }
     }
