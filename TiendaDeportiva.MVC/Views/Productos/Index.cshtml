@@ -1,138 +1,143 @@
 @{
-    ViewBag.Title = "catalogo de productos";
+    ViewBag.Title = "Catálogo de Productos";
 }
-<meta charset="utf-8" />
 
-<div class="container mt-4">
+<h2 class="mb-4">Catálogo de Productos</h2>
 
-    <!-- header -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h2 class="fw-bold mb-0">catalogo de productos</h2>
-            <small class="text-muted">gestion de inventario</small>
-        </div>
+<div class="row mb-3">
+    <div class="col-md-4">
+        <label>Categoría</label>
+        <select id="categoria" class="form-control">
+            <option value="">Todas</option>
+            <option value="Futbol">Fútbol</option>
+            <option value="Basquetbol">Básquetbol</option>
+            <option value="Natacion">Natación</option>
+            <option value="Tenis">Tenis</option>
+        </select>
+    </div>
 
-        <button class="btn btn-success shadow-sm" onclick="abrirModalCrear()">
-            + nuevo producto
+    <div class="col-md-2 d-flex align-items-end">
+        <button onclick="cargarProductos()" class="btn btn-primary w-100">
+            Buscar
         </button>
     </div>
 
-    <!-- filtros -->
-    <div class="card shadow-sm mb-4">
-        <div class="card-body">
-            <div class="row g-3">
-
-                <div class="col-md-3">
-                    <label class="form-label">categoria</label>
-                    <select id="filtroCategoria" class="form-select">
-                        <option value="">todas</option>
-                        <option value="futbol">futbol</option>
-                        <option value="basquetbol">basquetbol</option>
-                        <option value="natacion">natacion</option>
-                        <option value="tenis">tenis</option>
-                    </select>
-                </div>
-
-                <div class="col-md-3">
-                    <label class="form-label">precio minimo</label>
-                    <input type="number" id="minPrecio" class="form-control" placeholder="0">
-                </div>
-
-                <div class="col-md-3">
-                    <label class="form-label">precio maximo</label>
-                    <input type="number" id="maxPrecio" class="form-control" placeholder="999">
-                </div>
-
-                <div class="col-md-3 d-flex align-items-end gap-2">
-                    <button class="btn btn-primary w-100" onclick="cargarProductos()">
-                        filtrar
-                    </button>
-                    <button class="btn btn-outline-secondary w-100" onclick="limpiarFiltros()">
-                        limpiar
-                    </button>
-                </div>
-
-            </div>
-        </div>
+    <div class="col-md-3 d-flex align-items-end">
+        <button onclick="confirmarPedido()" class="btn btn-success w-100">
+            Confirmar Pedido
+        </button>
     </div>
+</div>
 
-    <!-- tabla -->
-    <div class="card shadow-sm">
-        <div class="card-body p-0">
+<table class="table table-bordered table-striped" id="tablaProductos">
+    <thead class="table-dark">
+        <tr>
+            <th>Nombre</th>
+            <th>Precio</th>
+            <th>Stock</th>
+            <th>Categoría</th>
+            <th>Acciones</th>
+        </tr>
+    </thead>
+    <tbody></tbody>
+</table>
 
-            <table class="table table-hover align-middle mb-0">
-                <thead class="table-dark">
+<hr />
+
+<h4>🛒 Carrito</h4>
+<ul id="listaCarrito" class="list-group mb-3"></ul>
+
+<script src="~/Scripts/jquery-3.7.0.min.js"></script>
+
+<script>
+    let carrito = [];
+
+    function cargarProductos() {
+
+        let categoria = $("#categoria").val();
+        let url = "https://localhost:44300/api/productos";
+
+        // ✅ Solo agrega parámetro si hay filtro
+        if (categoria) {
+            url += "?categoria=" + encodeURIComponent(categoria);
+        }
+
+        $.ajax({
+            url: url,
+            type: "GET",
+            success: function (res) {
+
+                let filas = "";
+
+                res.Data.forEach(p => {
+                    filas += `
                     <tr>
-                        <th>nombre</th>
-                        <th>descripcion</th>
-                        <th>precio</th>
-                        <th>stock</th>
-                        <th>categoria</th>
-                        <th width="150">acciones</th>
-                    </tr>
-                </thead>
+                        <td>${p.Nombre}</td>
+                        <td>$${p.Precio}</td>
+                        <td>${p.Stock}</td>
+                        <td>${p.Categoria}</td>
+                        <td>
+                            <button class="btn btn-success btn-sm"
+                                onclick="agregarCarrito(${p.Id}, '${p.Nombre}')">
+                                Agregar
+                            </button>
+                        </td>
+                    </tr>`;
+                });
 
-                <tbody id="tablaProductos"></tbody>
-            </table>
+                $("#tablaProductos tbody").html(filas);
+            },
+            error: function (err) {
+                console.error(err);
+                alert("❌ Error al cargar productos");
+            }
+        });
+    }
 
-        </div>
-    </div>
+    function agregarCarrito(id, nombre) {
+        carrito.push({ IdProducto: id, Cantidad: 1 });
 
-</div>
+        $("#listaCarrito").append(`
+            <li class="list-group-item">
+                ${nombre} (x1)
+            </li>
+        `);
+    }
 
-<!-- modal -->
-<div class="modal fade" id="modalProducto">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content shadow">
+    function confirmarPedido() {
 
-            <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title">producto</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
+        if (carrito.length === 0) {
+            alert("⚠️ El carrito está vacío");
+            return;
+        }
 
-            <div class="modal-body">
+        let pedido = {
+            Productos: carrito
+        };
 
-                <input type="hidden" id="productoId">
+        console.log("Enviando:", JSON.stringify(pedido)); // DEBUG
 
-                <div class="mb-2">
-                    <label>nombre</label>
-                    <input class="form-control" id="nombre">
-                </div>
+        $.ajax({
+            url: "https://localhost:44300/api/pedidos",
+            type: "POST",
+            contentType: "application/json",
+            data: JSON.stringify(pedido),
 
-                <div class="mb-2">
-                    <label>descripcion</label>
-                    <input class="form-control" id="descripcion">
-                </div>
+            success: function (res) {
+                alert("Pedido realizado correctamente");
 
-                <div class="row">
-                    <div class="col-md-6 mb-2">
-                        <label>precio</label>
-                        <input class="form-control" id="precio" type="number">
-                    </div>
+                carrito = [];
+                $("#listaCarrito").html("");
+            },
 
-                    <div class="col-md-6 mb-2">
-                        <label>stock</label>
-                        <input class="form-control" id="stock" type="number">
-                    </div>
-                </div>
+            error: function (xhr) {
+                console.error(xhr.responseText);
+                alert("Error: " + xhr.responseText);
+            }
+        });
+    }
 
-                <div class="mb-2">
-                    <label>categoria</label>
-                    <select class="form-select" id="categoria">
-                        <option>futbol</option>
-                        <option>basquetbol</option>
-                        <option>natacion</option>
-                        <option>tenis</option>
-                    </select>
-                </div>
-
-            </div>
-
-            <div class="modal-footer">
-                <button class="btn btn-secondary" data-bs-dismiss="modal">cancelar</button>
-                <button class="btn btn-success" onclick="guardarProducto()">guardar</button>
-            </div>
-
-        </div>
-    </div>
-</div>
+    $(document).ready(function () {
+        cargarProductos();
+    });
+</script>

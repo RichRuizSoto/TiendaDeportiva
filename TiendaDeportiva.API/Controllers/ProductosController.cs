@@ -3,9 +3,13 @@ using System.Linq;
 using System.Web.Http;
 using TiendaDeportiva.API.DTOs;
 using TiendaDeportiva.API.Models;
+using System.Web.Http.Cors;
 
 namespace TiendaDeportiva.API.Controllers
+
+
 {
+    [EnableCors(origins: "*", headers: "*", methods: "*")]
     [RoutePrefix("api/productos")]
     public class ProductosController : ApiController
     {
@@ -25,8 +29,12 @@ namespace TiendaDeportiva.API.Controllers
 
                 // Filtros
                 if (!string.IsNullOrEmpty(categoria))
-                    query = query.Where(p => p.Categoria == categoria);
+                    if (!string.IsNullOrEmpty(categoria))
+                    {
+                        categoria = categoria.ToLower();
 
+                        query = query.Where(p => p.Categoria.ToLower() == categoria);
+                    }
                 if (minPrecio.HasValue)
                     query = query.Where(p => p.Precio >= minPrecio.Value);
 
